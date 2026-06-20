@@ -434,11 +434,21 @@ def _find_libs(repository_ctx, check_cuda_libs_script, cuda_config):
             cuda_config.cublas_version,
             static = False,
         ),
+        # NOTE(apollo-modern-image): On the modern u20 CUDA 11.8 image the
+        # cusolver_version parsed by find_cuda_config.py can come back empty,
+        # which makes bazel look for the UNVERSIONED "libcusolver.so" while
+        # STILL turning on the SONAME check. That file is a symlink whose
+        # SONAME is "libcusolver.so.11", so the check fails with
+        #   "None of the libraries match their SONAME: .../libcusolver.so"
+        # and aborts the whole CUDA lib verification (Actual '[]').
+        # cusolver shares the same major (11) as cusparse on CUDA 11.x, so we
+        # fall back to the cusparse_version to pin the versioned soname
+        # ".so.11" whenever cusolver_version is empty.
         "cusolver": _check_cuda_lib_params(
             "cusolver",
             cpu_value,
             cuda_config.config["cusolver_library_dir"],
-            cuda_config.cusolver_version,
+            cuda_config.cusolver_version or cuda_config.cusparse_version,
             static = False,
         ),
         "curand": _check_cuda_lib_params(

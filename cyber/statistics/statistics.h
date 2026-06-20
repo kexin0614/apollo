@@ -65,12 +65,35 @@ class Statistics {
     disable_chan_var_ = true;
   }
 
+  // NOTE(modern-fix): the original implementation unconditionally constructed
+  // a brand-new ::bvar::Adder<> on every call, which calls bvar's expose()
+  // logic again with the same name. cyber's hybrid_transmitter creates 4
+  // sibling transmitters (intra/shm/rtps + hybrid wrapper) sharing the same
+  // (node, channel), so the same expose_name is registered 4x and bvar
+  // prints 3x `E ... Already exposed '...' whose value is '0'` to stderr.
+  // It is harmless (bvar tolerates duplicate exposes) but very noisy in
+  // talker/listener / dreamview tests. We cache the Adder per expose_name
+  // so all transmitters of the same writer share one counter, matching the
+  // semantics every other map in this class already has.
   template <typename SampleT>
   std::shared_ptr<::bvar::Adder<SampleT>> CreateAdder(
                         const proto::RoleAttributes& role_attr) {
-    std::string expose_name =
-      role_attr.node_name() + "-" + role_attr.channel_name();
-    return std::make_shared<::bvar::Adder<SampleT>>(expose_name);
+    const std::string expose_name =
+        role_attr.node_name() + "-" + role_attr.channel_name();
+    std::lock_guard<std::mutex> lk(send_adder_mtx_);
+    auto it = send_adder_cache_.find(expose_name);
+    if (it != send_adder_cache_.end()) {
+      // We stored the Adder under a `void` shared_ptr to avoid making the
+      // template parameter SampleT part of the cache key. Re-cast on lookup;
+      // SampleT is fixed by the only call site (Transmitter<M>::ctor uses
+      // CreateAdder<int>), so this stays type-safe in practice.
+      auto cached = std::static_pointer_cast<::bvar::Adder<SampleT>>(it->second);
+      return cached;
+    }
+    auto adder = std::make_shared<::bvar::Adder<SampleT>>(expose_name);
+    send_adder_cache_[expose_name] =
+        std::static_pointer_cast<void>(adder);
+    return adder;
   }
 
   template <typename SampleT>
@@ -247,6 +270,13 @@ class Statistics {
   std::unordered_map<std::string, LatencyVarPtr> latency_map_;
   std::unordered_map<std::string, StatusVarPtr> status_map_;
   std::unordered_map<std::string, AdderVarPtr> adder_map_;
+
+  // Cache for Transmitter-side bvar::Adder<>; see CreateAdder() above.
+  // Stored as `void` because SampleT is a template parameter; only one
+  // SampleT (int) is actually used by cyber today, so the static_pointer_cast
+  // on lookup is safe.
+  std::unordered_map<std::string, std::shared_ptr<void>> send_adder_cache_;
+  std::mutex send_adder_mtx_;
 
   std::unordered_map<std::string, std::shared_ptr<SpanHandler>> span_handlers_;
 

@@ -32,8 +32,17 @@ apollo_component(
         "//modules/drivers/lidar/seyond/proto:seyond_proto",
         "//modules/drivers/lidar/common:lidar_common",
     ],
+    # NOTE(apollo-modern-image): the Seyond SDK 3.x renamed its single
+    # `innoclientsdk` lib into three: innolidarsdkclient / innolidarsdkcommon /
+    # innolidarutils. install_seyond_sdk.sh drops them (and the headers) into
+    # /opt/apollo/sysroot/{lib,include}. Link all three. (A compat symlink
+    # libinnoclientsdk.so -> libinnolidarsdkclient.so is also created, but we
+    # link the real names here.) See README_modern.md Q20.
     linkopts = [
-        "-linnoclientsdk",
+        "-L/opt/apollo/sysroot/lib",
+        "-linnolidarsdkclient",
+        "-linnolidarsdkcommon",
+        "-linnolidarutils",
     ]
 )
 

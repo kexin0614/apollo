@@ -215,6 +215,15 @@ void MotionCommandProcessorBase<T>::OnCommand(
     if (timestamp - command->header().timestamp_sec() > 2.0) {
       AINFO << "request for " << command->header().module_name()
             << " has been timeouted";
+      // NOTE(apollo-modern-image): must set status before returning. The cyber
+      // Service serializes `status` as the response; with the newer protobuf
+      // (5.x) used by the modern image, serializing a CommandStatus whose
+      // (formerly `required`) `status` field is unset triggers a libprotobuf
+      // FATAL (CHECK failed: IsInitialized) and aborts external_command. The
+      // older protobuf in the 18.04 image tolerated this, which is why this
+      // latent bug never surfaced upstream.
+      status->set_status(CommandStatusType::UNKNOWN);
+      status->set_message("Command request has timed out.");
       return;
     }
   }
@@ -256,6 +265,12 @@ void MotionCommandProcessorBase<T>::OnCommand(
   // Process command except RoutingRequest.
   if (!ProcessSpecialCommand(command, planning_command)) {
     AERROR << "Process special command failed!";
+    // NOTE(apollo-modern-image): set status before returning (see the timeout
+    // branch above) so the cyber Service response is always a fully-initialized
+    // CommandStatus; otherwise serializing it aborts under the modern protobuf.
+    status->set_status(CommandStatusType::ERROR);
+    status->set_message("Process special command failed: " +
+                        command->DebugString());
     return;
   }
   planning_command->set_command_id(command->command_id());

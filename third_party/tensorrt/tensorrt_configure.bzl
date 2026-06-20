@@ -24,6 +24,10 @@ _TF_TENSORRT_CONFIG_REPO = "TF_TENSORRT_CONFIG_REPO"
 _TF_TENSORRT_VERSION = "TF_TENSORRT_VERSION"
 _TF_NEED_TENSORRT = "TF_NEED_TENSORRT"
 
+# NOTE(apollo-modern-image): nvparsers is deprecated (removed in TRT10) but
+# Apollo perception still #include "NvCaffeParser.h", so install_tensorrt.sh
+# installs the TRT8.6 nvparsers headers+lib (via dpkg-deb -x, which sidesteps
+# the apt dependency conflict). Therefore we keep nvparsers in both lists.
 _TF_TENSORRT_LIBS = ["nvinfer", "nvinfer_plugin", "nvparsers", "nvonnxparser"]
 _TF_TENSORRT_HEADERS = ["NvInfer.h", "NvUtils.h", "NvInferPlugin.h"]
 _TF_TENSORRT_HEADERS_V6 = [
@@ -67,7 +71,12 @@ def _create_dummy_repository(repository_ctx):
     _tpl(
         repository_ctx, "build_defs.bzl", {
             "%{if_tensorrt}": "if_false",
-            "%{_TF_TENSORRT_VERSION}": repository_ctx.os.environ["TENSORRT_VERSION"]
+            # NOTE(apollo-modern-image): the upstream code indexed
+            # os.environ["TENSORRT_VERSION"] directly, which raises
+            # 'key "TENSORRT_VERSION" not found in dictionary' on images
+            # that don't export that env var (we only set TF_TENSORRT_VERSION).
+            # Fall back gracefully to an empty string in the dummy repo.
+            "%{_TF_TENSORRT_VERSION}": repository_ctx.os.environ.get("TENSORRT_VERSION", "")
         }
     )
     _tpl(repository_ctx, "BUILD", {
@@ -128,12 +137,22 @@ def _create_local_tensorrt_repository(repository_ctx):
     ]
 
     # Set up config file.
+    # NOTE(apollo-modern-image): upstream filled %{_TF_TENSORRT_VERSION} from
+    # os.environ["TENSORRT_VERSION"], which doesn't exist on our images (we set
+    # TF_TENSORRT_VERSION, and the real version is already detected above as
+    # `trt_version`). Use the detected major version, falling back to the env
+    # vars if present, so build_defs.bzl's if_tensorrt_version_8() works.
+    _trt_major = trt_version.split(".")[0] if trt_version else ""
+    _trt_define = repository_ctx.os.environ.get(
+        "TENSORRT_VERSION",
+        repository_ctx.os.environ.get("TF_TENSORRT_VERSION", _trt_major),
+    )
     repository_ctx.template(
         "build_defs.bzl",
         tpl_paths["build_defs.bzl"],
         {
             "%{if_tensorrt}": "if_true",
-            "%{_TF_TENSORRT_VERSION}": repository_ctx.os.environ["TENSORRT_VERSION"]
+            "%{_TF_TENSORRT_VERSION}": _trt_define,
         },
     )
 
