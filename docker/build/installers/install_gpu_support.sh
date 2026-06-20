@@ -34,6 +34,13 @@ bash ${CURR_DIR}/install_magma.sh
 info "Install libtorch ..."
 bash ${CURR_DIR}/install_libtorch.sh
 
+# TensorRT: required by ./apollo.sh config in the dev stage (bootstrap.py forces
+# TF_NEED_TENSORRT=1 when stage=dev && TF_NEED_CUDA=1). The CUDA base image does
+# NOT ship TensorRT, so we install it explicitly here. See install_tensorrt.sh
+# and README_modern.md Q16. Set SKIP_TENSORRT=1 for a CPU-only image.
+info "Install TensorRT ..."
+bash ${CURR_DIR}/install_tensorrt.sh
+
 # openmpi @cuda
 # pcl @cuda
 # opencv @cuda

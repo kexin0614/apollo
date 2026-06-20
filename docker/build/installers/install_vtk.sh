@@ -106,30 +106,52 @@ info "Ok. Done installing VTK-${VERSION}"
 rm -rf ${PKG_NAME} VTK-${VERSION}
 
 if [[ -n "${CLEAN_DEPS}" ]]; then
-    apt_get_remove \
-        libjpeg-dev \
-        libpng-dev \
-        libtiff-dev \
-        libeigen3-dev \
-        liblzma-dev \
-        libxml2-dev \
-        liblz4-dev \
-        libdouble-conversion-dev \
-        libsqlite3-dev \
-        libglew-dev \
-        libtheora-dev \
-        libogg-dev \
-        libxt-dev \
-        libfreetype6-dev \
-        libjsoncpp-dev \
-        libhdf5-dev
+    # The "dev -> runtime" replacement below is bionic-only:
+    #   bionic: libglew2.0 / libdouble-conversion1 / libjsoncpp1 / libhdf5-100
+    #   focal : libglew2.1 / libdouble-conversion3 / libjsoncpp1 / libhdf5-103
+    #   jammy : libglew2.2 / libdouble-conversion3 / libjsoncpp25 / libhdf5-103-1
+    # Rather than chase ABI numbers across releases (the same problem the
+    # ffmpeg installer hits), on focal/jammy we keep the -dev packages
+    # installed. They are a strict superset of the runtime packages
+    # (same .so, plus headers / symlinks), so VTK keeps working unchanged.
+    # Image grows by ~50 MB; acceptable for a dev image.
+    _codename=""
+    if [[ -r /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        _codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+    fi
 
-    # install Runtime-deps for VTK
-    apt_get_update_and_install \
-        libglew2.0 \
-        libdouble-conversion1 \
-        libxml2 \
-        libjsoncpp1 \
-        libhdf5-100
+    if [[ "${_codename}" == "bionic" ]]; then
+        apt_get_remove \
+            libjpeg-dev \
+            libpng-dev \
+            libtiff-dev \
+            libeigen3-dev \
+            liblzma-dev \
+            libxml2-dev \
+            liblz4-dev \
+            libdouble-conversion-dev \
+            libsqlite3-dev \
+            libglew-dev \
+            libtheora-dev \
+            libogg-dev \
+            libxt-dev \
+            libfreetype6-dev \
+            libjsoncpp-dev \
+            libhdf5-dev
+
+        # install Runtime-deps for VTK
+        apt_get_update_and_install \
+            libglew2.0 \
+            libdouble-conversion1 \
+            libxml2 \
+            libjsoncpp1 \
+            libhdf5-100
+    else
+        info "Skip VTK dev->runtime package replacement on ${_codename:-unknown}" \
+             "(libglew2.0 / libdouble-conversion1 / libhdf5-100 are bionic-only ABI names)." \
+             "Keeping -dev packages installed; image will be ~50 MB larger."
+    fi
 fi
 

@@ -36,7 +36,10 @@ tar xzf "${PKG_NAME}"
 info "Install Node for $geo ..."
 
 if [[ "${geo}" == "cn" ]]; then
-    export N_NODE_MIRROR=https://npm.taobao.org/mirrors/node
+    # npm.taobao.org was retired on 2022-05-31; the new official mirror is
+    # registry.npmmirror.com. Allow override via N_NODE_MIRROR.
+    # Reference: https://npmmirror.com/
+    export N_NODE_MIRROR="${N_NODE_MIRROR:-https://registry.npmmirror.com/-/binary/node}"
 fi
 
 pushd n-${VERSION}

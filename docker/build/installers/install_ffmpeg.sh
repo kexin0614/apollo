@@ -86,32 +86,57 @@ ldconfig
 rm -fr ${PKG_NAME} ffmpeg-${VERSION}
 
 if [[ -n "${CLEAN_DEPS}" ]]; then
-    apt_get_remove \
-        nasm \
-        yasm \
-        libx265-dev \
-        libass-dev \
-        libfdk-aac-dev \
-        libmp3lame-dev \
-        libopus-dev \
-        libtheora-dev \
-        libvorbis-dev \
-        libvpx-dev \
-        libx264-dev
+    # Detect Ubuntu codename. The "dev → runtime" replacement below was
+    # written for bionic (18.04): the runtime packages libvpx5 / libx264-152 /
+    # libx265-146 carry hard-coded SONAME numbers that change every Ubuntu
+    # release (focal -> libvpx6/libx264-155/libx265-179, jammy ->
+    # libvpx7/libx264-163/libx265-199). Rather than chase ABI numbers across
+    # releases, on focal/jammy we keep the -dev packages installed (the
+    # runtime .so they ship is what ffmpeg actually dlopens at run time, the
+    # -dev packages are a strict superset). Image grows by ~30 MB but the
+    # build no longer breaks on any non-bionic base.
+    _codename=""
+    if [[ -r /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        _codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+    fi
 
-    # Don't remove libnuma-dev as it is required by coinor-libipopt1v5
+    if [[ "${_codename}" == "bionic" ]]; then
+        apt_get_remove \
+            nasm \
+            yasm \
+            libx265-dev \
+            libass-dev \
+            libfdk-aac-dev \
+            libmp3lame-dev \
+            libopus-dev \
+            libtheora-dev \
+            libvorbis-dev \
+            libvpx-dev \
+            libx264-dev
 
-    # install runtime-dependencies of ffmpeg
-    apt_get_update_and_install \
-        libvpx5 \
-        libx264-152 \
-        libx265-146 \
-        libopus0   \
-        libmp3lame0 \
-        libvorbis0a \
-        libvorbisenc2 \
-        libfdk-aac1 \
-        libass9     \
-        libtheora0
+        # Don't remove libnuma-dev as it is required by coinor-libipopt1v5
+
+        # install runtime-dependencies of ffmpeg
+        apt_get_update_and_install \
+            libvpx5 \
+            libx264-152 \
+            libx265-146 \
+            libopus0   \
+            libmp3lame0 \
+            libvorbis0a \
+            libvorbisenc2 \
+            libfdk-aac1 \
+            libass9     \
+            libtheora0
+    else
+        info "Skip ffmpeg dev->runtime package replacement on ${_codename:-unknown}" \
+             "(libvpx5 / libx264-152 / libx265-146 are bionic-only ABI names)." \
+             "Keeping -dev packages installed; image will be ~30 MB larger."
+        # Still drop the build-only assemblers, they are never needed at run time
+        # and they exist with stable names on every Ubuntu release.
+        apt_get_remove nasm yasm || true
+    fi
 fi
 

@@ -127,34 +127,51 @@ ok "Successfully installed PCL ${VERSION}"
 rm -fr ${PKG_NAME} pcl-pcl-${VERSION}
 
 if [[ -n "${CLEAN_DEPS}" ]]; then
-    # Remove build-deps for PCL
-    # Note(storypku):
-    # Please keep libflann-dev as it was required by local_config_pcl
-    apt_get_remove \
-        libeigen3-dev \
-        libglew-dev \
-        libglfw3-dev \
-        freeglut3-dev \
-        libusb-1.0-0-dev \
-        libdouble-conversion-dev \
-        libopenni-dev \
-        libjpeg-dev \
-        libpng-dev \
-        libtiff-dev \
-        liblz4-dev \
-        libfreetype6-dev \
-        libpcap-dev \
-        libqhull-dev
+    # bionic-only ABI runtime names: libdouble-conversion1 / libqhull7
+    #   focal : libdouble-conversion3 / libqhull8.0
+    #   jammy : libdouble-conversion3 / libqhull-r8.0
+    # Keep -dev installed on non-bionic; -dev is a strict superset of the
+    # runtime package so PCL keeps working unchanged.
+    _codename=""
+    if [[ -r /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        _codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+    fi
 
-    # Add runtime-deps for pcl
-    apt_get_update_and_install \
-        libusb-1.0-0 \
-        libopenni0 \
-        libfreetype6 \
-        libtiff5 \
-        libdouble-conversion1 \
-        libpcap0.8 \
-        libqhull7
+    if [[ "${_codename}" == "bionic" ]]; then
+        # Note(storypku):
+        # Please keep libflann-dev as it was required by local_config_pcl
+        apt_get_remove \
+            libeigen3-dev \
+            libglew-dev \
+            libglfw3-dev \
+            freeglut3-dev \
+            libusb-1.0-0-dev \
+            libdouble-conversion-dev \
+            libopenni-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libtiff-dev \
+            liblz4-dev \
+            libfreetype6-dev \
+            libpcap-dev \
+            libqhull-dev
+
+        # Add runtime-deps for pcl
+        apt_get_update_and_install \
+            libusb-1.0-0 \
+            libopenni0 \
+            libfreetype6 \
+            libtiff5 \
+            libdouble-conversion1 \
+            libpcap0.8 \
+            libqhull7
+    else
+        info "Skip PCL dev->runtime package replacement on ${_codename:-unknown}" \
+             "(libdouble-conversion1 / libqhull7 are bionic-only ABI names)." \
+             "Keeping -dev packages installed."
+    fi
 fi
 
 # Clean up cache to reduce layer size.

@@ -48,7 +48,18 @@ function py3_version() {
 }
 
 function pip3_install() {
-    python3 -m pip install --timeout 30 --no-cache-dir -i https://mirror.baidu.com/pypi/simple/ $@
+    # PyPI mirror selection.
+    # The original Apollo image used https://mirror.baidu.com/pypi/simple/, but
+    # that mirror has become unreliable (often serves 404 / empty index, which
+    # pip reports as "Could not find a version that satisfies the requirement").
+    # Allow override via PYPI_MIRROR; default to TUNA which is stable in CN.
+    local _mirror="${PYPI_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple/}"
+    local _host
+    _host="$(echo "${_mirror}" | awk -F/ '{print $3}')"
+    python3 -m pip install --timeout 30 --no-cache-dir \
+        -i "${_mirror}" \
+        --trusted-host "${_host}" \
+        "$@"
 }
 
 function apt_get_update_and_install() {

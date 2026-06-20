@@ -24,14 +24,21 @@ CURR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 TARGET_ARCH=$(uname -m)
 
-BAZEL_VERSION="3.7.1"
+# Originally this script installed bazel 3.7.1 from GitHub Releases and then
+# upgraded to 5.2.0 via the bazel-apt repo at storage.googleapis.com. The
+# second step is unreachable from mainland CN (storage.googleapis.com is
+# blocked), causing the build to hang for ~120s on every retry. We now grab
+# the 5.2.0 .deb directly from GitHub Releases in one shot.
+BAZEL_VERSION="5.2.0"
 BUILDTOOLS_VERSION="3.5.0"
 
 if [[ "$TARGET_ARCH" == "x86_64" ]]; then
   # https://docs.bazel.build/versions/master/install-ubuntu.html
   PKG_NAME="bazel_${BAZEL_VERSION}-linux-x86_64.deb"
   DOWNLOAD_LINK="https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/${PKG_NAME}"
-  SHA256SUM="2c6c68c23618ac3f37c73ba111f79212b33968217e1a293aa9bf5a17cdd3212b"
+  # sha256 of bazel_5.2.0-linux-x86_64.deb, taken from
+  # https://github.com/bazelbuild/bazel/releases/download/5.2.0/bazel_5.2.0-linux-x86_64.deb.sha256
+  SHA256SUM="c9036f1457d2baf209f634c5918b5fafd48069cad4c7cb0418b2f1deedefdc11"
   download_if_not_cached $PKG_NAME $SHA256SUM $DOWNLOAD_LINK
 
   apt_get_update_and_install \
@@ -89,15 +96,12 @@ fi
 # Used by `apollo.sh config` to determine native cuda compute capability.
 bash ${CURR_DIR}/install_deviceQuery.sh
 
-curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
-sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-
-sudo apt update
-
-sudo apt install --only-upgrade bazel=5.2.0
-
-rm -f /etc/apt/sources.list.d/bazel.list
+# NOTE(modern image): the original script appended the bazel-apt repo at
+# https://storage.googleapis.com/bazel-apt/ here and ran
+# `apt install --only-upgrade bazel=5.2.0`. storage.googleapis.com is blocked
+# from mainland China and the apt fetch hangs without any progress output.
+# Since we already install 5.2.0 directly from GitHub above, the apt step is
+# redundant and has been removed.
 
 # Clean up cache to reduce layer size.
 apt-get clean && \

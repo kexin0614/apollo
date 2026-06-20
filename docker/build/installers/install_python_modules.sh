@@ -46,9 +46,23 @@ popd >/dev/null
 rm -rf pypcd
 
 if [[ -n "${CLEAN_DEPS}" ]]; then
-    apt_get_remove libhdf5-dev
-    apt_get_update_and_install \
-        libhdf5-100
+    # bionic-only ABI name: libhdf5-100. focal/jammy ship libhdf5-103
+    # (focal) / libhdf5-103-1 (jammy). Keep -dev installed on non-bionic
+    # to avoid chasing ABI numbers across releases. -dev is a strict
+    # superset of the runtime package.
+    _codename=""
+    if [[ -r /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        _codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+    fi
+    if [[ "${_codename}" == "bionic" ]]; then
+        apt_get_remove libhdf5-dev
+        apt_get_update_and_install \
+            libhdf5-100
+    else
+        info "Skip libhdf5 dev->runtime replacement on ${_codename:-unknown}; keep libhdf5-dev."
+    fi
 fi
 
 # Clean up cache to reduce layer size.
