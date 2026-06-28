@@ -60,6 +60,10 @@ OTHER_VOLUMES_CONF=
 
 CROSS_PLATFORM_FLAG=0
 
+# Extra user-specified -v/--volume mounts, e.g.
+#   bash docker/scripts/dev_start.sh -v /data:/data -v /models:/models
+EXTRA_VOLUMES=
+
 # Map
 DEFAULT_MAPS=(
   sunnyvale
@@ -88,6 +92,7 @@ OPTIONS:
     -c, --cross-platform <arch>   Run a cross-platform image
     --co-dev <path>               Run collaborative env between source image and package manager image
     --shm-size <bytes>            Size of /dev/shm, passed directly to "docker run"
+    -v, --volume <src:dst[:opt]>  Extra bind mount passed to "docker run -v", can be used multiple times
     -y                            Agree to Apollo License Agreement non-interactively
     stop                          Stop all running Apollo containers
 EOF
@@ -198,6 +203,13 @@ function parse_arguments() {
         shm_size="$1"
         shift
         optarg_check_for_opt "${opt}" "${shm_size}"
+        ;;
+
+      -v | --volume)
+        local extra_volume="$1"
+        shift
+        optarg_check_for_opt "${opt}" "${extra_volume}"
+        EXTRA_VOLUMES="${EXTRA_VOLUMES} -v ${extra_volume}"
         ;;
 
       --map)
@@ -502,6 +514,7 @@ function main() {
     ${MAP_VOLUMES_CONF} \
     ${OTHER_VOLUMES_CONF} \
     ${local_volumes} \
+    ${EXTRA_VOLUMES} \
     --net host \
     -w /apollo \
     --add-host "${DEV_INSIDE}:127.0.0.1" \
