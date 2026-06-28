@@ -101,4 +101,22 @@ grpc_deps()
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 
 grpc_extra_deps()
+
+# +-----------------------------------------------------------------------+
+# | hedron_compile_commands: 为 clangd 生成 compile_commands.json         |
+# | 参考: https://github.com/hedronvision/bazel-compile-commands-extractor |
+# +-----------------------------------------------------------------------+
+http_archive(
+    name = "hedron_compile_commands",
+    # 该 commit 兼容 Bazel 5.x (WORKSPACE 模式)
+    sha256 = "ed5aea1dc87856aa2029cb6940a51511557c5cac3dbbcb05a4abd989862c36b4",
+    strip_prefix = "bazel-compile-commands-extractor-e16062717d9b098c3c2ac95717d2b3e661c50608",
+    urls = [
+        "https://github.com/hedronvision/bazel-compile-commands-extractor/archive/e16062717d9b098c3c2ac95717d2b3e661c50608.tar.gz",
+    ],
+)
+
+load("@hedron_compile_commands//:workspace_setup.bzl", "hedron_compile_commands_setup")
+
+hedron_compile_commands_setup()
 #######################################APOLLO#######################################

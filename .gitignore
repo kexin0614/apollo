@@ -84,4 +84,9 @@ tools/FlameGraph
 # dv plugins
 modules/studio_connector
 
+# clangd / compile_commands.json (由 scripts/gen_compile_commands.sh 生成)
+/compile_commands.json
+.cache/clangd
+/external
+
 #WORKSPACE

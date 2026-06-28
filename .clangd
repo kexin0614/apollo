@@ -1,0 +1,36 @@
+# clangd 配置 (https://clangd.llvm.org/config)
+#
+# 该配置配合由 scripts/gen_compile_commands.sh 生成的根目录
+# compile_commands.json 使用, 用于在 VSCode clangd 插件中获得
+# Apollo C++ 代码补全 / 跳转 / 诊断。
+
+CompileFlags:
+  # 移除 Bazel 工具链中 clangd 不识别的 GCC 专有参数, 避免误报
+  Remove:
+    - -fno-canonical-system-headers
+    - -fdiagnostics-color*
+    - -W*reorder
+    - --param*
+  # 显式使用 C++14, 与 apollo.sh build 保持一致
+  Add:
+    - -std=c++14
+
+Index:
+  # 后台建立索引, 提供全工程跳转/查找
+  Background: Build
+
+InlayHints:
+  Designators: true
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+
+Diagnostics:
+  # 头文件保存时显示由其它 TU 引起的问题
+  UnusedIncludes: Strict
+  ClangTidy:
+    Add:
+      - performance-*
+      - bugprone-*
+    Remove:
+      - bugprone-easily-swappable-parameters
